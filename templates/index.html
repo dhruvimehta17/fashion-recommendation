@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fashion Products - {{ category.replace('_', ' ') }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #fafafa;
+            color: #333;
+        }
+
+        header {
+            background-color: #111;
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .back-button {
+            text-align: center;
+            margin: 15px 0;
+        }
+
+        .back-button a {
+            background-color: #111;
+            color: #fff;
+            text-decoration: none;
+            padding: 8px 18px;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        .back-button a:hover {
+            background-color: #444;
+        }
+
+        #search-form {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        #search-form input[type="text"] {
+            padding: 8px 10px;
+            font-size: 16px;
+            width: 250px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        #search-form button {
+            padding: 8px 15px;
+            font-size: 16px;
+            margin-left: 8px;
+            border: none;
+            background-color: #111;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        #search-form button:hover {
+            background-color: #444;
+        }
+
+        .category-links {
+            text-align: center;
+            margin: 10px 15px 30px;
+            flex-wrap: wrap;
+        }
+
+        .category-links a {
+            margin: 4px 8px;
+            display: inline-block;
+            font-size: 13px;
+            padding: 6px 10px;
+            color: #111;
+            background-color: #eee;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+
+        .category-links a:hover {
+            background-color: #ddd;
+        }
+
+        #products {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .product-card {
+            width: 250px;
+            background-color: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+
+        .product-card:hover {
+            transform: scale(1.02);
+        }
+
+        .product-card img {
+            width: 100%;
+            height: auto;
+            border-bottom: 1px solid #eee;
+        }
+
+        .product-card h3 {
+            font-size: 16px;
+            margin: 10px;
+        }
+
+        .product-card p {
+            font-size: 14px;
+            margin: 5px 10px;
+            color: #555;
+        }
+
+        .product-card p strong {
+            color: #111;
+        }
+
+        .search-buttons {
+            text-align: center;
+            margin: 10px 0 15px;
+        }
+
+        .search-buttons button {
+            padding: 6px 12px;
+            margin: 5px;
+            font-size: 13px;
+            border: none;
+            border-radius: 4px;
+            background-color: #222;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .search-buttons button:hover {
+            background-color: #555;
+        }
+
+        @media screen and (max-width: 768px) {
+            .product-card {
+                width: 90%;
+                margin: auto;
+            }
+
+            #search-form input[type="text"] {
+                width: 80%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Fashion Products - {{ category.replace('_', ' ') }}</h1>
+    </header>
+
+    {% if similarity_results %}
+    <div class="back-button">
+        <a href="/category/{{ category }}">← Back to {{ category.replace('_', ' ') }}</a>
+    </div>
+    {% endif %}
+
+    <div id="search-form">
+        <form action="/search" method="POST">
+            <input type="text" name="query" placeholder="Search for products..." required />
+            <button type="submit">Search</button>
+        </form>
+    </div>
+
+    <div class="category-links">
+        {% for cat in categories %}
+            <a href="/category/{{ cat }}">{{ cat.replace('_', ' ') }}</a>
+        {% endfor %}
+    </div>
+
+    <div id="products">
+        {% if query_image_url %}
+        <div class="product-card">
+            <img src="{{ query_image_url }}" alt="Query Image" />
+            <h3>Selected Image</h3>
+            <p>This is the image you clicked</p>
+        </div>
+        {% endif %}
+
+        {% if products %}
+            {% for p in products %}
+                <div class="product-card">
+                    {% if p['product_images'] %}
+                        <img src="{{ p['product_images'] }}" alt="{{ p['product_name'] }}" />
+                    {% else %}
+                        <img src="https://via.placeholder.com/250x300?text=No+Image" alt="No image available" />
+                    {% endif %}
+                    <h3>{{ p['product_name'] }}</h3>
+                    <p>{{ p['price'] }}</p>
+                    <p>{{ p['details'] }}</p>
+                    {% if p.get('similarity') is not none %}
+                        <p><strong>Similarity:</strong> {{ "%.2f"|format(p['similarity']) }}</p>
+                    {% endif %}
+
+                    <div class="search-buttons">
+                        <form action="/by_text" method="POST" style="display:inline;">
+                            <input type="hidden" name="query_text" value="{{ p['details'] }}" />
+                            <input type="hidden" name="category" value="{{ category }}" />
+                            <button type="submit">Search by Text</button>
+                        </form>
+
+                        <form action="/by_image" method="POST" style="display:inline;">
+                            <input type="hidden" name="query_image_url" value="{{ p['product_images'] }}" />
+                            <input type="hidden" name="category" value="{{ category }}" />
+                            <button type="submit">Search by Image</button>
+                        </form>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No products found for this category or search query.</p>
+        {% endif %}
+    </div>
+</body>
+</html>
