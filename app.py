@@ -19,6 +19,35 @@ categories = ['ACCESSORIES', 'BAGS_BACKPACKS', 'BEAUTY', 'BLAZERS', 'HOODIES_SWE
               'OVERSHIRTS', 'PERFUMES', 'POLO_SHIRTS', 'SHIRTS', 'SHOES', 'SHORTS', 'SUITS', 'SWEATERS_CARDIGANS', 
               'SWIMWEAR', 'T-SHIRTS', 'TROUSERS', 'ZARA_ATHLETICZ', 'ZARA_ORIGINS']
 
+formal_keywords = {'formal', 'office', 'meeting', 'work'}
+activity_keywords = {
+    'party': ['T-SHIRTS', 'JEANS', 'BLAZERS', 'SHOES', 'PERFUMES'],
+    'date': ['T-SHIRTS', 'JEANS', 'BLAZERS', 'SHOES', 'PERFUMES'],
+    'run': ['ZARA_ATHLETICZ', 'SHOES'],
+    'gym': ['ZARA_ATHLETICZ', 'SHOES'],
+    'swim': ['SWIMWEAR'],
+}
+
+
+def get_extra_categories(query):
+    query = query.lower()
+    extra = set()
+
+    if any(word in query for word in ['formal', 'interview', 'office', 'business', 'meeting']):
+        extra.update(['BLAZERS', 'SHIRTS', 'TROUSERS', 'SHOES', 'SUITS'])
+
+    if 'party' in query or 'date' in query:
+        extra.add('PERFUMES')
+
+    if any(word in query for word in ['run', 'jog', 'gym', 'exercise', 'workout']):
+        extra.add('ZARA_ATHLETICZ')
+
+    if 'swim' in query or 'beach' in query:
+        extra.add('SWIMWEAR')
+
+    return list(extra)
+
+
 def load_category_data(category):
     file_path = f"zara-dataset/men/{category}.csv"
     if os.path.exists(file_path):
@@ -26,6 +55,7 @@ def load_category_data(category):
         df.columns = df.columns.str.strip()
         return df
     return None
+
 
 def filter_products_with_images(df):
     def get_first_image(img_str):
@@ -36,7 +66,7 @@ def filter_products_with_images(df):
                     first_img_dict = imgs[0]
                     if isinstance(first_img_dict, dict):
                         return list(first_img_dict.keys())[0]
-            except Exception as e:
+            except Exception:
                 return None
         return None
 
@@ -44,7 +74,9 @@ def filter_products_with_images(df):
     df = df[df['product_images'].notna() & (df['product_images'] != '')]
     return df
 
+
 resnet_model = ResNet50(weights='imagenet', include_top=False, pooling='avg')
+
 
 def extract_image_features(img_file):
     img = image.load_img(img_file, target_size=(224, 224))
@@ -52,7 +84,8 @@ def extract_image_features(img_file):
     img_array = np.expand_dims(img_array, axis=0)
     img_array = preprocess_input(img_array)
     features = resnet_model.predict(img_array)
-    return features  
+    return features
+
 
 def calculate_text_similarity(query_text, products):
     vectorizer = TfidfVectorizer()
@@ -62,14 +95,17 @@ def calculate_text_similarity(query_text, products):
     similarities = cosine_similarity(query_vector, tfidf_matrix)
     return similarities[0]
 
+
 def extract_keywords(text):
     tokens = re.findall(r'\b\w+\b', text.lower())
     keywords = [t for t in tokens if len(t) > 2]
     return keywords
 
+
 def product_matches_keywords(product, keywords):
     text = (product['product_name'] + ' ' + product['details']).lower()
     return any(k in text for k in keywords)
+
 
 def download_image(url):
     try:
@@ -81,11 +117,13 @@ def download_image(url):
         print(f"Error downloading image: {e}")
         return None
 
+
 def normalize_vector(v):
     norm = np.linalg.norm(v)
     if norm == 0:
         return v
     return v / norm
+
 
 @app.route('/')
 def index():
@@ -97,6 +135,7 @@ def index():
     products = df[['product_name', 'link', 'product_images', 'price', 'details']].to_dict(orient='records')
     return render_template('index.html', products=products, category=category, categories=categories, similarity_results=False, show_similarity=False)
 
+
 @app.route('/category/<category>')
 def category_view(category):
     df = load_category_data(category)
@@ -106,40 +145,60 @@ def category_view(category):
     products = df[['product_name', 'link', 'product_images', 'price', 'details']].to_dict(orient='records')
     return render_template('index.html', products=products, category=category, categories=categories, similarity_results=False, show_similarity=False)
 
+
 @app.route('/search', methods=['POST'])
 def search():
-    query_text = request.form.get('query')
-    all_results = []
+    query_text = request.form.get('query', '').strip().lower()
+    if not query_text:
+        return "Please enter a valid query."
 
-    for category in categories:
+    query_keywords = extract_keywords(query_text)
+    must_include_perfume = any(kw in query_keywords for kw in ['party', 'date'])
+
+    search_categories = set(categories + get_extra_categories(query_text))
+
+    for act, cats in activity_keywords.items():
+        if act in query_keywords:
+            search_categories.update(cats)
+
+    if must_include_perfume:
+        search_categories.add('PERFUMES')
+
+    all_products = []
+    for category in search_categories:
         df = load_category_data(category)
         if df is None:
             continue
         df = filter_products_with_images(df)
+        df['category'] = category
+        all_products.append(df[['product_name', 'link', 'product_images', 'price', 'details', 'category']])
 
-        products = df[['product_name', 'link', 'product_images', 'price', 'details']].to_dict(orient='records')
-        if not products:
-            continue
+    if not all_products:
+        return "No data found in any category."
 
-        similarities = calculate_text_similarity(query_text, products)
+    combined_df = pd.concat(all_products, ignore_index=True)
+    combined_df['details'] = combined_df['details'].fillna('')
+    combined_df['product_name'] = combined_df['product_name'].fillna('')
 
-        for product, sim in zip(products, similarities):
-            if sim > 0.1:  
-                product_copy = dict(product)
-                product_copy['similarity'] = sim
-                product_copy['category'] = category
-                all_results.append(product_copy)
+    filtered_df = combined_df[combined_df.apply(lambda row: product_matches_keywords(row, query_keywords), axis=1)]
+    if filtered_df.empty:
+        filtered_df = combined_df.copy()
 
-    all_results.sort(key=lambda x: x['similarity'], reverse=True)
+    try:
+        similarities = calculate_text_similarity(query_text, filtered_df.to_dict(orient='records'))
+        filtered_df['similarity'] = similarities
+        filtered_df = filtered_df.sort_values(by='similarity', ascending=False)
+    except Exception as e:
+        print(f"TF-IDF error: {e}")
+        return "Failed to calculate similarity."
 
-    return render_template(
-        'index.html',
-        products=all_results,
-        category="Search Results",
-        categories=categories,
-        similarity_results=True,
-        show_similarity=True
-    )
+    return render_template('index.html',
+                           products=filtered_df.to_dict(orient='records'),
+                           category=f"Search: {query_text}",
+                           categories=categories,
+                           similarity_results=True,
+                           show_similarity=True)
+
 
 @app.route('/by_text', methods=['POST'])
 def by_text():
@@ -157,7 +216,7 @@ def by_text():
     filtered_products = [p for p in products if product_matches_keywords(p, keywords)]
 
     if not filtered_products:
-        filtered_products = products  
+        filtered_products = products
 
     similarities = calculate_text_similarity(query_text, filtered_products)
     results = []
@@ -167,6 +226,7 @@ def by_text():
         results.append(product_copy)
     results.sort(key=lambda x: x['similarity'], reverse=True)
     return render_template('index.html', products=results, category=category, categories=categories, similarity_results=True, show_similarity=False)
+
 
 @app.route('/by_image', methods=['POST'])
 def by_image():
@@ -193,10 +253,9 @@ def by_image():
     products = df[['product_name', 'link', 'product_images', 'price', 'details']].to_dict(orient='records')
 
     similar_products = []
-    threshold = 0.85  
+    threshold = 0.85
     for i, feat in enumerate(cached_features):
-        feat_flat = feat.flatten()  
-        # Cosine similarity
+        feat_flat = feat.flatten()
         sim = np.dot(query_features, feat_flat) / (np.linalg.norm(query_features) * np.linalg.norm(feat_flat))
         sim = float(sim)
         if sim >= threshold:
@@ -212,5 +271,7 @@ def by_image():
         categories=categories,
         similarity_results=True
     )
+
+
 if __name__ == '__main__':
     app.run(debug=True)
