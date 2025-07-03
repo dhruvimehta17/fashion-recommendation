@@ -8,3 +8,4 @@ requests==2.31.0
 cassandra-driver==3.29.1
 gunicorn==22.0.0
 Pillow==10.3.0
+python-dotenv
