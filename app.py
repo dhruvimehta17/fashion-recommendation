@@ -12,6 +12,7 @@ from keras.preprocessing import image
 from io import BytesIO
 import pickle
 import re
+from cassandra_utils import load_data_from_cassandra
 
 app = Flask(__name__)
 
@@ -153,47 +154,35 @@ def search():
         return "Please enter a valid query."
 
     query_keywords = extract_keywords(query_text)
-    must_include_perfume = any(kw in query_keywords for kw in ['party', 'date'])
+    all_products = load_data_from_cassandra()
 
-    search_categories = set(categories + get_extra_categories(query_text))
+    product_dicts = []
+    for row in all_products:
+        # Adjust field names depending on Cassandra schema
+        product_dicts.append({
+            'product_name': row.product_name,
+            'details': row.details if hasattr(row, 'details') else '',
+            'price': row.price if hasattr(row, 'price') else '',
+            'link': row.link if hasattr(row, 'link') else '',
+            'product_images': row.image_url if hasattr(row, 'image_url') else '',
+            'category': row.category if hasattr(row, 'category') else ''
+        })
 
-    for act, cats in activity_keywords.items():
-        if act in query_keywords:
-            search_categories.update(cats)
-
-    if must_include_perfume:
-        search_categories.add('PERFUMES')
-
-    all_products = []
-    for category in search_categories:
-        df = load_category_data(category)
-        if df is None:
-            continue
-        df = filter_products_with_images(df)
-        df['category'] = category
-        all_products.append(df[['product_name', 'link', 'product_images', 'price', 'details', 'category']])
-
-    if not all_products:
-        return "No data found in any category."
-
-    combined_df = pd.concat(all_products, ignore_index=True)
-    combined_df['details'] = combined_df['details'].fillna('')
-    combined_df['product_name'] = combined_df['product_name'].fillna('')
-
-    filtered_df = combined_df[combined_df.apply(lambda row: product_matches_keywords(row, query_keywords), axis=1)]
-    if filtered_df.empty:
-        filtered_df = combined_df.copy()
+    filtered_products = [p for p in product_dicts if product_matches_keywords(p, query_keywords)]
+    if not filtered_products:
+        filtered_products = product_dicts
 
     try:
-        similarities = calculate_text_similarity(query_text, filtered_df.to_dict(orient='records'))
-        filtered_df['similarity'] = similarities
-        filtered_df = filtered_df.sort_values(by='similarity', ascending=False)
+        similarities = calculate_text_similarity(query_text, filtered_products)
+        for i, sim in enumerate(similarities):
+            filtered_products[i]['similarity'] = sim
+        filtered_products.sort(key=lambda x: x['similarity'], reverse=True)
     except Exception as e:
         print(f"TF-IDF error: {e}")
         return "Failed to calculate similarity."
 
     return render_template('index.html',
-                           products=filtered_df.to_dict(orient='records'),
+                           products=filtered_products,
                            category=f"Search: {query_text}",
                            categories=categories,
                            similarity_results=True,
