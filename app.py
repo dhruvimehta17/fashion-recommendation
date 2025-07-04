@@ -13,6 +13,11 @@ from io import BytesIO
 import pickle
 import re
 # from cassandra_utils import load_data_from_cassandra
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app)  
+
 
 app = Flask(__name__)
 

@@ -178,12 +178,12 @@
 
     {% if similarity_results %}
     <!-- <div class="back-button">
-        <a href="/category/{{ category }}">← Back to {{ category.replace('_', ' ') }}</a>
+        <a href="https://fashion-recommendation-yfgr.onrender.com/category/{{ category }}">← Back to {{ category.replace('_', ' ') }}</a>
     </div> -->
     {% endif %}
 
     <div id="search-form">
-        <form action="/search" method="POST">
+        <form action="https://fashion-recommendation-yfgr.onrender.com/search" method="POST">
             <input type="text" name="query" placeholder="Search for products..." required />
             <button type="submit">Search</button>
         </form>
@@ -191,7 +191,7 @@
 
     <div class="category-links">
         {% for cat in categories %}
-            <a href="/category/{{ cat }}">{{ cat.replace('_', ' ') }}</a>
+            <a href="https://fashion-recommendation-yfgr.onrender.com/category/{{ cat }}">{{ cat.replace('_', ' ') }}</a>
         {% endfor %}
     </div>
 
@@ -220,13 +220,13 @@
                     {% endif %}
 
                     <div class="search-buttons">
-                        <form action="/by_text" method="POST" style="display:inline;">
+                        <form action="https://fashion-recommendation-yfgr.onrender.com/by_text" method="POST" style="display:inline;">
                             <input type="hidden" name="query_text" value="{{ p['details'] }}" />
                             <input type="hidden" name="category" value="{{ category }}" />
                             <button type="submit">Search by Text</button>
                         </form>
 
-                        <form action="/by_image" method="POST" style="display:inline;">
+                        <form action="https://fashion-recommendation-yfgr.onrender.com/by_image" method="POST" style="display:inline;">
                             <input type="hidden" name="query_image_url" value="{{ p['product_images'] }}" />
                             <input type="hidden" name="category" value="{{ category }}" />
                             <button type="submit">Search by Image</button>
