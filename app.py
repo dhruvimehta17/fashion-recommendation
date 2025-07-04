@@ -12,7 +12,7 @@ from keras.preprocessing import image
 from io import BytesIO
 import pickle
 import re
-from cassandra_utils import load_data_from_cassandra
+# from cassandra_utils import load_data_from_cassandra
 
 app = Flask(__name__)
 
@@ -147,46 +147,45 @@ def category_view(category):
     return render_template('index.html', products=products, category=category, categories=categories, similarity_results=False, show_similarity=False)
 
 
-@app.route('/search', methods=['POST'])
-def search():
-    query_text = request.form.get('query', '').strip().lower()
-    if not query_text:
-        return "Please enter a valid query."
+# @app.route('/search', methods=['POST'])
+# def search():
+#     query_text = request.form.get('query', '').strip().lower()
+#     if not query_text:
+#         return "Please enter a valid query."
 
-    query_keywords = extract_keywords(query_text)
-    all_products = load_data_from_cassandra()
+#     query_keywords = extract_keywords(query_text)
+#     all_products = load_data_from_cassandra()
 
-    product_dicts = []
-    for row in all_products:
-        # Adjust field names depending on Cassandra schema
-        product_dicts.append({
-            'product_name': row.product_name,
-            'details': row.details if hasattr(row, 'details') else '',
-            'price': row.price if hasattr(row, 'price') else '',
-            'link': row.link if hasattr(row, 'link') else '',
-            'product_images': row.image_url if hasattr(row, 'image_url') else '',
-            'category': row.category if hasattr(row, 'category') else ''
-        })
+#     product_dicts = []
+#     for row in all_products:
+#         product_dicts.append({
+#             'product_name': row.product_name,
+#             'details': row.details if hasattr(row, 'details') else '',
+#             'price': row.price if hasattr(row, 'price') else '',
+#             'link': row.link if hasattr(row, 'link') else '',
+#             'product_images': row.image_url if hasattr(row, 'image_url') else '',
+#             'category': row.category if hasattr(row, 'category') else ''
+#         })
 
-    filtered_products = [p for p in product_dicts if product_matches_keywords(p, query_keywords)]
-    if not filtered_products:
-        filtered_products = product_dicts
+#     filtered_products = [p for p in product_dicts if product_matches_keywords(p, query_keywords)]
+#     if not filtered_products:
+#         filtered_products = product_dicts
 
-    try:
-        similarities = calculate_text_similarity(query_text, filtered_products)
-        for i, sim in enumerate(similarities):
-            filtered_products[i]['similarity'] = sim
-        filtered_products.sort(key=lambda x: x['similarity'], reverse=True)
-    except Exception as e:
-        print(f"TF-IDF error: {e}")
-        return "Failed to calculate similarity."
+#     try:
+#         similarities = calculate_text_similarity(query_text, filtered_products)
+#         for i, sim in enumerate(similarities):
+#             filtered_products[i]['similarity'] = sim
+#         filtered_products.sort(key=lambda x: x['similarity'], reverse=True)
+#     except Exception as e:
+#         print(f"TF-IDF error: {e}")
+#         return "Failed to calculate similarity."
 
-    return render_template('index.html',
-                           products=filtered_products,
-                           category=f"Search: {query_text}",
-                           categories=categories,
-                           similarity_results=True,
-                           show_similarity=True)
+#     return render_template('index.html',
+#                            products=filtered_products,
+#                            category=f"Search: {query_text}",
+#                            categories=categories,
+#                            similarity_results=True,
+#                            show_similarity=True)
 
 
 @app.route('/by_text', methods=['POST'])
