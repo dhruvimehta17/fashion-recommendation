@@ -7,7 +7,7 @@ import numpy as np
 from flask import Flask, render_template, request
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from keras.applications.resnet50 import ResNet50, preprocess_input
+from keras.applications.mobilenet_v2 import MobileNetV2, preprocess_input
 from keras.preprocessing import image
 from io import BytesIO
 import pickle
@@ -75,8 +75,7 @@ def filter_products_with_images(df):
     df = df[df['product_images'].notna() & (df['product_images'] != '')]
     return df
 
-
-resnet_model = ResNet50(weights='imagenet', include_top=False, pooling='avg')
+mobilenet_model = MobileNetV2(weights='imagenet', include_top=False, pooling='avg')
 
 
 def extract_image_features(img_file):
@@ -84,7 +83,7 @@ def extract_image_features(img_file):
     img_array = image.img_to_array(img)
     img_array = np.expand_dims(img_array, axis=0)
     img_array = preprocess_input(img_array)
-    features = resnet_model.predict(img_array)
+    features = mobilenet_model.predict(img_array)
     return features
 
 
